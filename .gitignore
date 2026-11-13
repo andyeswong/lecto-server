@@ -1,0 +1,30 @@
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+env/
+
+# Datos locales (no se commitean)
+store/
+library/
+*.db
+*.db-wal
+*.db-shm
+vault.json
+settings.json
+crops/
+
+# Build web (se genera aparte)
+web/
+dist/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store

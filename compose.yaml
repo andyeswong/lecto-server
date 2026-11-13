@@ -1,0 +1,62 @@
+# Lecto — servidor de biblioteca en un contenedor.
+#
+# Uso (desde server-public/):
+#   podman-compose build
+#   podman-compose up -d server            # arranca el servidor (http://localhost:8790)
+#   podman-compose run --rm ingest          # importa la biblioteca (one-shot)
+#
+# Volúmenes:
+#   library  — tus series (<library>/<series>/info.json + *.cbz|cbr) — bind mount, solo lectura
+#   store    — store.db, pages/, thumbs/ (datos derivados) — volumen con nombre, rw
+#
+# Pasa tu biblioteca (ruta absoluta):
+#   LECTO_LIBRARY=/home/usuario/mi-biblioteca podman-compose up -d server
+#
+# Auth (opcional): pasa LECTO_TOKEN para exigir Authorization: Bearer <token>
+# en todo /api/*. Sin token, el servidor es abierto.
+#   LECTO_TOKEN=cambia-este-token podman-compose up -d server
+#
+# userns: keep-id — rootless podman mapea tu uid del host al del contenedor.
+# :Z — relabel SELinux (no-op en sistemas sin SELinux).
+
+services:
+  server:
+    build: .
+    userns: keep-id
+    ports:
+      - "8790:8790"
+    environment:
+      LECTO_PORT: "8790"
+      LECTO_STORE: /data/store
+      LECTO_LIBRARY: /data/library
+      LECTO_TOKEN: ${LECTO_TOKEN:-}          # auth: exigir Bearer <token> en /api/* (vacio = abierto)
+      LECTO_CORS: ${LECTO_CORS:-*}           # Access-Control-Allow-Origin (default *)
+      LECTO_LOG: ${LECTO_LOG:-}              # "1" para loguear cada peticion
+    volumes:
+      - ${LECTO_LIBRARY:-./library}:/data/library:ro,Z
+      - lecto-store:/data/store
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import os,urllib.request; urllib.request.urlopen(f'http://localhost:{os.environ.get(\"LECTO_PORT\",\"8790\")}/api/info').read()"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+
+  ingest:
+    # Job de una vez: lee la biblioteca y llena el store.
+    build: .
+    userns: keep-id
+    command: ["python3", "ingest.py", "/data/library"]
+    environment:
+      LECTO_STORE: /data/store
+      LECTO_LIBRARY: /data/library
+    volumes:
+      - ${LECTO_LIBRARY:-./library}:/data/library:ro,Z
+      - lecto-store:/data/store
+    restart: "no"
+    depends_on:
+      - server
+
+volumes:
+  lecto-store:

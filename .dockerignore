@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+tests/
+deploy/
+.git/
+.gitignore
+compose.yaml
+Containerfile
+.dockerignore
+*.md
